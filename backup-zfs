@@ -1,0 +1,136 @@
+#!/bin/bash
+# backup-zfs: use zfs send/recv to push/pull snapshots
+
+usage() {
+	echo "$(basename "$0") [-hv] [-t tag] [-k keep] [-f dateformat] [srchost:]srcfs [desthost:]destfs" >&2
+	echo "$(basename "$0"): use zfs send/recv to push/pull snapshots" >&2
+	printf "%15s: %s\n" >&2 "-h" "this help statement" \
+	                        "-v" "verbose" \
+	                    "-t tag" "tag to use for naming snapshots and in syslog" \
+	                   "-k keep" "number of snapshots to keep on src" \
+	             "-f dateformat" "format string for date(1), used in naming snapshots"
+	exit $1
+}
+
+# log to syslog; if verbose or on a tty, also to stdout
+# usage: log msg
+log() {
+	logger -t $tag -- "$@"
+	if [[ -t 1 ]] || $verbose ; then
+		echo "$@" >&2
+	fi
+}
+
+# exit with a code & message
+# usage: die $exitcode msg
+die() {
+	code="$1"
+	shift
+	if [[ $code -ne 0 ]] ; then
+		verbose=true log "FATAL: $@"
+	else
+		log "$@"
+	fi
+	exit $code
+}
+
+# run zfs(1) command either locally or via ssh
+# usage: ZFS "$host" command args...
+ZFS() {
+	host="$1"
+	shift
+	if [[ -n $host ]] ; then
+		log "remote ($host): zfs $@"
+		ssh "$host" sudo zfs "$@"
+	else
+		log "local: zfs $@"
+		sudo zfs "$@"
+	fi
+}
+
+###
+### defaults
+###
+tag=backup-zfs
+dateformat="%F_%T"
+keep=5
+verbose=false
+
+###
+### parse options
+###
+while getopts "hvk:t:f:" opt ; do
+	case $opt in
+		h) usage 0 ;;
+		v) verbose=true ;;
+		k) keep=$OPTARG ;;
+		t) tag=$OPTARG ;;
+		f) dateformat=$OPTARG ;;
+		*) usage 1 ;;
+	esac
+done
+shift $((OPTIND-1))
+date="$(date +"$dateformat")"
+
+###
+### parse src & dest host/fs info
+###
+# fail if there's ever >1 colon
+if [[ $1 =~ :.*: || $2 =~ :.*: ]] ; then
+	die 1 "invalid fsspec: '$1' or '$2'"
+fi
+
+# fail if src or dest isn't specified
+if [[ -z $1 || -z $2 ]] ; then
+	usage 1
+fi
+src="$1"
+dest="$2"
+
+# discard anything before a colon to get the fs
+srcfs="${src#*:}"
+destfs="${dest#*:}"
+
+# iff there is a colon, discard everything after it to get the host
+[[ $src =~ : ]] && srchost="${src%:*}"
+[[ $dest =~ : ]] && desthost="${dest%:*}"
+
+# get the last src component
+srcbase="${srcfs##*/}"
+
+###
+### create new snapshot on src
+###
+cur="$srcfs@${tag}_$date"
+ZFS "$srchost" snapshot -r "$cur"
+
+###
+### find newest snapshot matching the tag on dest
+###
+last="$(ZFS "$desthost" list -d 1 -t snapshot -H -S creation -o name $destfs/$srcbase 2>/dev/null \
+	| grep -F "@${tag}_" | head -n1 | cut -f2 -d@)"
+
+###
+### send & receive
+###
+# 1st time: send full snapshot
+if [[ -z $last ]] ; then
+	log "sending full recursive snapshot from $src to $dest"
+	ZFS "$srchost" send -R "$cur" | ZFS "$desthost" receive -Fud "$destfs"
+# special case: tagged snapshots exist on dest, but src has rotated through all
+elif ! ZFS "$srchost" list $srcfs@$last &>/dev/null ; then
+	die 1 "no incremental path from from $src to $dest"
+# normal case: send incremental
+else
+	log "sending incremental snapshot from $src to $dest (${last#${tag}_}..${cur#*@${tag}_})"
+	ZFS "$srchost" send -R -I "$last" "$cur" | ZFS "$desthost" receive -Fud "$destfs"
+fi
+
+###
+### clean up old snapshots
+###
+for snap in $(ZFS "$srchost" list -d 1 -t snapshot -H -S creation -o name $srcfs \
+	      | grep -F "@${tag}_" | cut -f2 -d@ | tail -n+$((keep+1)) ) ;
+do
+	ZFS "$srchost" destroy -r $srcfs@$snap
+done
