@@ -2,10 +2,11 @@
 # backup-zfs: use zfs send/recv to push/pull snapshots
 
 usage() {
-	echo "$(basename "$0") [-hv] [-t tag] [-k keep] [-f dateformat] [srchost:]srcfs [desthost:]destfs" >&2
+	echo "$(basename "$0") [-hvq] [-t tag] [-k keep] [-f dateformat] [srchost:]srcfs [desthost:]destfs" >&2
 	echo "$(basename "$0"): use zfs send/recv to push/pull snapshots" >&2
 	printf "%15s: %s\n" >&2 "-h" "this help statement" \
 	                        "-v" "verbose" \
+				"-q" "quiet" \
 	                    "-t tag" "tag to use for naming snapshots and in syslog" \
 	                   "-k keep" "number of snapshots to keep on src" \
 	             "-f dateformat" "format string for date(1), used in naming snapshots"
@@ -16,7 +17,7 @@ usage() {
 # usage: log msg
 log() {
 	logger -t $tag -- "$@"
-	if [[ -t 1 ]] || $verbose ; then
+	if ! $quiet && [[ -t 1 ]] || $verbose ; then
 		echo "$@" >&2
 	fi
 }
@@ -55,14 +56,16 @@ tag=backup-zfs
 dateformat="%F_%T"
 keep=5
 verbose=false
+quiet=false
 
 ###
 ### parse options
 ###
-while getopts "hvk:t:f:" opt ; do
+while getopts "hvqk:t:f:" opt ; do
 	case $opt in
 		h) usage 0 ;;
 		v) verbose=true ;;
+		q) quiet=true ;;
 		k) keep=$OPTARG ;;
 		t) tag=$OPTARG ;;
 		f) dateformat=$OPTARG ;;
