@@ -22,7 +22,8 @@ scripts out there, and was the main reason I wrote this.
 * always uses sudo
 * always creates recursive snapshots (`zfs snapshot -r`)
 * always sends full replication stream (`zfs send -R`)
-* always keeps the full zfs path, minus the first component (`zfs recv -d`)
+* destination should be specified as the *parent* of the desired destination
+  (`zfs recv -e`)
 
 ## Install/Requirements
 * There is no need to install, just clone/download where you like and run
