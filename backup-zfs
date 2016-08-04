@@ -1,5 +1,6 @@
 #!/bin/bash
 # backup-zfs: use zfs send/recv to push/pull snapshots
+prog="$(basename "$0")"
 
 usage() {
 	echo "$(basename "$0") [-hvq] [-t tag] [-k keep] [-d dateopts] [srchost:]srcfs [desthost:]destfs" >&2
@@ -16,7 +17,7 @@ usage() {
 # log to syslog; if verbose or on a tty, also to stdout
 # usage: log msg
 log() {
-	logger -t $tag -- "$@"
+	logger -t "$prog" -- "$@"
 	if ! $quiet && [[ -t 1 ]] || $verbose ; then
 		echo "$@" >&2
 	fi
@@ -52,7 +53,7 @@ ZFS() {
 ###
 ### defaults
 ###
-tag=backup-zfs
+tag="$prog"
 dateopts="+%F_%T"
 keep=5
 verbose=false
