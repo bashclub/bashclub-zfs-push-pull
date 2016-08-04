@@ -3,14 +3,21 @@
 prog="$(basename "$0")"
 
 usage() {
-	echo "$(basename "$0") [-hvq] [-t tag] [-k keep] [-d dateopts] [srchost:]srcfs [desthost:]destfs" >&2
-	echo "$(basename "$0"): use zfs send/recv to push/pull snapshots" >&2
-	printf "%15s: %s\n" >&2 "-h" "this help statement" \
-	                        "-v" "verbose" \
-				"-q" "quiet" \
-	                    "-t tag" "tag to use for naming snapshots and in syslog" \
-	                   "-k keep" "number of snapshots to keep on src" \
-	               "-d dateopts" "options string for date(1), used in naming snapshots"
+	cat >&2 <<-EOF
+	usage: $prog [-hvq] [-t tag] [-k keep] [-d dateopts] src dest
+	  use zfs send/recv to push/pull snapshots
+
+	  src          the source fs, specified as [host:]pool/path/to/fs
+	  dest         the destination fs parent, specified as [host:]pool/path/to/fs
+	               (the final path component of src will be appended to dest)
+
+	  -h           help
+	  -v           verbose mode
+	  -q           quiet mode
+	  -t tag       tag to use for naming snapshots (default: backup-zfs)
+	  -k keep      number of snapshots to keep on src (default: 5)
+	  -d dateopts  options for date(1) - used to name the snapshots (default: +%F_%T)
+	EOF
 	exit $1
 }
 
