@@ -118,7 +118,7 @@ fi
 ### create new snapshot on src
 ###
 cur="$srcfs@${tag}_$date"
-ZFS "$srchost" snapshot -r "$cur"
+ZFS "$srchost" snapshot -r "$cur" || die $? "zfs snapshot failed"
 
 ###
 ### find newest snapshot matching the tag on dest
@@ -132,14 +132,14 @@ last="$(ZFS "$desthost" list -d 1 -t snapshot -H -S creation -o name $destfs/$sr
 # 1st time: send full snapshot
 if [[ -z $last ]] ; then
 	log "sending full recursive snapshot from $src to $dest"
-	ZFS "$srchost" send -R "$cur" | ZFS "$desthost" receive -Fue "$destfs"
+	ZFS "$srchost" send -R "$cur" | ZFS "$desthost" receive -Fue "$destfs" || die $? "zfs full send failed"
 # special case: tagged snapshots exist on dest, but src has rotated through all
 elif ! ZFS "$srchost" list $srcfs@$last &>/dev/null ; then
 	die 1 "no incremental path from from $src to $dest"
 # normal case: send incremental
 else
 	log "sending incremental snapshot from $src to $dest (${last#${tag}_}..${cur#*@${tag}_})"
-	ZFS "$srchost" send -R -I "$last" "$cur" | ZFS "$desthost" receive -Fue "$destfs"
+	ZFS "$srchost" send -R -I "$last" "$cur" | ZFS "$desthost" receive -Fue "$destfs" || die $? "zfs incremental send failed"
 fi
 
 ###
