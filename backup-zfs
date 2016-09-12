@@ -109,6 +109,11 @@ destfs="${dest#*:}"
 # get the last src component
 srcbase="${srcfs##*/}"
 
+# ensure the destination fs exists before proceeding
+if [[ $(ZFS "$desthost" list -H -o name "$destfs" 2>/dev/null) != $destfs ]] ; then
+	die 1 "destination fs '$destfs' doesn't exist"
+fi
+
 ###
 ### create new snapshot on src
 ###
