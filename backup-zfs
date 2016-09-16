@@ -121,10 +121,9 @@ cur="$srcfs@${tag}_$date"
 ZFS "$srchost" snapshot -r "$cur" || die $? "zfs snapshot failed"
 
 ###
-### find newest snapshot matching the tag on dest
+### get newest snapshot on dest - it must exist on src
 ###
-last="$(ZFS "$desthost" list -d 1 -t snapshot -H -S creation -o name $destfs/$srcbase 2>/dev/null \
-	| grep -F "@${tag}_" | head -n1 | cut -f2 -d@)"
+last="$(ZFS "$desthost" list -d 1 -t snapshot -H -S creation -o name $destfs/$srcbase | head -n1 | cut -f2 -d@)"
 
 ###
 ### send & receive
