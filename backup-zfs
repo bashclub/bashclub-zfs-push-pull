@@ -57,6 +57,22 @@ ZFS() {
 	fi
 }
 
+# If initial zfs send -R is interrupted, it can't be resumed.
+# Rolling back all filesystems to the last consistent snapshot ought
+# to do the trick, but that's annoying to throw that data away.
+catchup() {
+	srcparent="${srcfs%/*}" # all but last child component of srcfs
+	root="${srcfs#*/}" # last child component of srcfs
+	target="$(ZFS "$srchost" list -d 1 -t snapshot -H -S creation -o name $srcfs | cut -f2 -d@ | grep "^$tag" | head -n1)"
+	for fs in $(ZFS "$desthost" list -Ho name -r "$destfs/$root" | tac) ; do
+		child="${fs#$destfs/}"
+		destsnap=$(ZFS "$desthost" list -Ho name -S creation -d1 -t snapshot $destfs/$child | head -n1 | cut -f2 -d@)
+		if [[ $destsnap != $target ]] ; then
+			ZFS "$srchost" send $send_opts -R -I @$destsnap $srcparent/$child@$target | ZFS "$desthost" receive $recv_opts -Fue "$destfs/${child%/*}"
+		fi
+	done
+}
+
 ###
 ### defaults
 ###
@@ -65,12 +81,14 @@ dateopts="+%F_%T"
 keep=5
 verbose=false
 quiet=false
+catchup=false
 
 ###
 ### parse options
 ###
-while getopts "hvqk:t:d:" opt ; do
+while getopts "chvqk:t:d:" opt ; do
 	case $opt in
+		c) catchup=true ;;
 		h) usage 0 ;;
 		v)
 			verbose=true
@@ -116,6 +134,14 @@ srcbase="${srcfs##*/}"
 # ensure the destination fs exists before proceeding
 if [[ $(ZFS "$desthost" list -H -o name "$destfs" 2>/dev/null) != $destfs ]] ; then
 	die 1 "destination fs '$destfs' doesn't exist"
+fi
+
+###
+### fix interrupted transfer
+###
+if $catchup ; then
+	catchup || die $? "catchup failed"
+	exit 0
 fi
 
 ###
