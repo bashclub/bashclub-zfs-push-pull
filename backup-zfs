@@ -72,7 +72,11 @@ quiet=false
 while getopts "hvqk:t:d:" opt ; do
 	case $opt in
 		h) usage 0 ;;
-		v) verbose=true ;;
+		v)
+			verbose=true
+			send_opts="-v"
+			recv_opts="-v"
+			;;
 		q) quiet=true ;;
 		k) keep=$OPTARG ;;
 		t) tag=$OPTARG ;;
@@ -131,14 +135,14 @@ last="$(ZFS "$desthost" list -d 1 -t snapshot -H -S creation -o name $destfs/$sr
 # 1st time: send full snapshot
 if [[ -z $last ]] ; then
 	log "sending full recursive snapshot from $src to $dest"
-	ZFS "$srchost" send -R "$cur" | ZFS "$desthost" receive -Fue "$destfs" || die $? "zfs full send failed"
+	ZFS "$srchost" send $send_opts -R "$cur" | ZFS "$desthost" receive $recv_opts -Fue "$destfs" || die $? "zfs full send failed"
 # special case: tagged snapshots exist on dest, but src has rotated through all
 elif ! ZFS "$srchost" list $srcfs@$last &>/dev/null ; then
 	die 1 "no incremental path from from $src to $dest"
 # normal case: send incremental
 else
 	log "sending incremental snapshot from $src to $dest (${last#${tag}_}..${cur#*@${tag}_})"
-	ZFS "$srchost" send -R -I "$last" "$cur" | ZFS "$desthost" receive -Fue "$destfs" || die $? "zfs incremental send failed"
+	ZFS "$srchost" send $send_opts -R -I "$last" "$cur" | ZFS "$desthost" receive $recv_opts -Fue "$destfs" || die $? "zfs incremental send failed"
 fi
 
 ###
