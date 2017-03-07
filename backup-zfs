@@ -17,6 +17,8 @@ usage() {
 	  -t tag       tag to use for naming snapshots (default: backup-zfs)
 	  -k keep      number of snapshots to keep on src (default: 5)
 	  -d dateopts  options for date(1) - used to name the snapshots (default: +%F_%T)
+	  -s           store mode - output snaps from local fs to ssh server
+	  -r           read mode - read snaps from ssh server to local fs
 	EOF
 	exit $1
 }
@@ -65,11 +67,13 @@ dateopts="+%F_%T"
 keep=5
 verbose=false
 quiet=false
+tossh=false
+fromssh=false
 
 ###
 ### parse options
 ###
-while getopts "hvqk:t:d:" opt ; do
+while getopts "hvqk:t:d:sr" opt ; do
 	case $opt in
 		h) usage 0 ;;
 		v)
@@ -81,11 +85,14 @@ while getopts "hvqk:t:d:" opt ; do
 		k) keep=$OPTARG ;;
 		t) tag=$OPTARG ;;
 		d) dateopts=$OPTARG ;;
+		s) tossh=true ;;
+		r) fromssh=true ;;
 		*) usage 1 ;;
 	esac
 done
 shift $((OPTIND-1))
 date="$(date $dateopts)"
+$tossh && $fromssh && die 1 "-s and -r are mutually exclusive"
 
 ###
 ### parse src & dest host/fs info
@@ -101,6 +108,89 @@ if [[ -z $1 || -z $2 ]] ; then
 fi
 src="$1"
 dest="$2"
+
+###
+### ssh mode - output snaps from local fs to ssh or read snaps from ssh to local fs
+if $tossh ; then
+	log "sending from local zfs filesystem to SSH server"
+
+	# make sure src exists
+	if [[ $src =~ : ]] ; then
+		die 1 "$src must be a local zfs filesystem"
+	elif [[ $(ZFS "" list -H -o name "$src" 2>/dev/null) != $src ]] ; then
+		die 1 "$src must be a local zfs filesystem"
+	fi
+
+	# split dest to components
+	if [[ $dest =~ : ]] ; then
+		desthost="${dest%:*}"
+		destpath="${dest#*:}"
+	else
+		die 1 "$dest must be ssh host:path"
+	fi
+
+	# get the last src component
+	srcbase="${src##*/}"
+
+	###
+	### create new snapshot on src
+	###
+	cur="$src@${tag}_$date"
+	ZFS "$srchost" snapshot -r "$cur" || die $? "zfs snapshot failed"
+
+	###
+	### get newest snapshot on dest - it must exist on src
+	###
+	#last="$(ZFS "$desthost" list -d 1 -t snapshot -H -S creation -o name $destfs/$srcbase | head -n1 | cut -f2 -d@)"
+	last="$(ssh "$desthost" cat "$destpath/.last")"
+
+	###
+	### send
+	###
+	# refuse to send without a valid .last maker
+	if [[ -z $last ]] ; then
+		die 1 "ssh path contains no .last file"
+	# special case: tagged snapshots exist on dest, but src has rotated through all
+	elif ! ZFS "$srchost" list $src@$last &>/dev/null ; then
+		die 1 "no incremental path from from $src to $dest"
+	# normal case: send incremental
+	else
+		log "sending incremental snapshot from $src to $dest (${last#${tag}_}..${cur#*@${tag}_})"
+		#ZFS "$srchost" send $send_opts -R -I "$last" "$cur" | ZFS "$desthost" receive $recv_opts -Fue "$destfs" || die $? "zfs incremental send failed"
+		ZFS "$srchost" send $send_opts -R -I "$last" "$cur" | ssh "$desthost" "cat > \"$destpath/${tag}_$date.zfssnap\"" || die $? "zfs incremental send failed"
+	fi
+
+	exit
+elif $fromssh ; then
+	log "receving from SSH server to local zfs filesystem"
+
+	# make sure dest exists
+	if [[ $dest =~ : ]] ; then
+		die 1 "$dest must be a local zfs filesystem"
+	elif [[ $(ZFS "" list -H -o name "$dest" 2>/dev/null) != $dest ]] ; then
+		die 1 "$dest must be a local zfs filesystem"
+	fi
+
+	# split src into components
+	if [[ $src =~ : ]] ; then
+		srchost="${src%:*}"
+		srcpath="${src#*:}"
+	else
+		die 1 "$src must be ssh host:path"
+	fi
+
+	###
+	### receive
+	###
+	log "receiving incremental snapshot from $src to $dest"
+	#ZFS "$srchost" send $send_opts -R -I "$last" "$cur" | ZFS "$desthost" receive $recv_opts -Fue "$destfs" || die $? "zfs incremental send failed"
+	for file in $(ssh "$srchost" "find \"$srcpath\" -name \"*.zfssnap\"") ; do
+		ssh "$srchost" "cat \"$file\"" | ZFS "$desthost" receive $recv_opts -Fue "$dest" && ssh "$srchost" "rm \"$file\""
+	done
+
+	exit
+fi
+die 1 "neither -s nor -r was specified"
 
 # discard anything before a colon to get the fs
 srcfs="${src#*:}"
