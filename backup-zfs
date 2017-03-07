@@ -19,6 +19,7 @@ usage() {
 	  -d dateopts  options for date(1) - used to name the snapshots (default: +%F_%T)
 	  -s           store mode - output snaps from local fs to ssh server
 	  -r           read mode - read snaps from ssh server to local fs
+	  -g gpg-id    gpg recipient key id (store mode only)
 	EOF
 	exit $1
 }
@@ -73,7 +74,7 @@ fromssh=false
 ###
 ### parse options
 ###
-while getopts "hvqk:t:d:sr" opt ; do
+while getopts "hvqk:t:d:srg:" opt ; do
 	case $opt in
 		h) usage 0 ;;
 		v)
@@ -87,12 +88,16 @@ while getopts "hvqk:t:d:sr" opt ; do
 		d) dateopts=$OPTARG ;;
 		s) tossh=true ;;
 		r) fromssh=true ;;
+		g) gpgid="$OPTARG" ;;
 		*) usage 1 ;;
 	esac
 done
 shift $((OPTIND-1))
 date="$(date $dateopts)"
 $tossh && $fromssh && die 1 "-s and -r are mutually exclusive"
+if ! $tossh && [[ -n $gpgid ]] ; then
+	die 1 "-g can only be used with -s"
+fi
 
 ###
 ### parse src & dest host/fs info
@@ -155,9 +160,18 @@ if $tossh ; then
 		die 1 "no incremental path from from $src to $dest"
 	# normal case: send incremental
 	else
-		log "sending incremental snapshot from $src to $dest (${last#${tag}_}..${cur#*@${tag}_})"
+		log "sending $([[ -n $gpgid ]] && echo "encrypted ")incremental snapshot from $src to $dest (${last#${tag}_}..${cur#*@${tag}_})"
 		#ZFS "$srchost" send $send_opts -R -I "$last" "$cur" | ZFS "$desthost" receive $recv_opts -Fue "$destfs" || die $? "zfs incremental send failed"
-		ZFS "$srchost" send $send_opts -R -I "$last" "$cur" | ssh "$desthost" "cat > \"$destpath/${tag}_$date.zfssnap\"" || die $? "zfs incremental send failed"
+		if [[ -n $gpgid ]] ; then
+			ZFS "$srchost" send $send_opts -R -I "$last" "$cur" \
+				| gpg --trust-model always --encrypt --recipient "$gpgid" \
+				| ssh "$desthost" "cat > \"$destpath/${tag}_$date.zfssnap.gpg\"" \
+				|| die $? "zfs incremental send failed"
+		else
+			ZFS "$srchost" send $send_opts -R -I "$last" "$cur" \
+				| ssh "$desthost" "cat > \"$destpath/${tag}_$date.zfssnap\"" \
+				|| die $? "zfs incremental send failed"
+		fi
 	fi
 
 	exit
@@ -184,13 +198,18 @@ elif $fromssh ; then
 	###
 	log "receiving incremental snapshot from $src to $dest"
 	#ZFS "$srchost" send $send_opts -R -I "$last" "$cur" | ZFS "$desthost" receive $recv_opts -Fue "$destfs" || die $? "zfs incremental send failed"
-	for file in $(ssh "$srchost" "find \"$srcpath\" -name \"*.zfssnap\"") ; do
-		ssh "$srchost" "cat \"$file\"" | ZFS "$desthost" receive $recv_opts -Fue "$dest" && ssh "$srchost" "rm \"$file\""
+	for file in $(ssh "$srchost" "find \"$srcpath\" -name \"*.zfssnap\" -o -name \"*.zfssnap.gpg\"") ; do
+		if [[ $file =~ \.gpg$ ]] ; then
+			ssh "$srchost" "cat \"$file\"" | gpg | ZFS "$desthost" receive $recv_opts -Fue "$dest" \
+				&& ssh "$srchost" "rm \"$file\""
+		else
+			ssh "$srchost" "cat \"$file\"" | ZFS "$desthost" receive $recv_opts -Fue "$dest" \
+				&& ssh "$srchost" "rm \"$file\""
+		fi
 	done
 
 	exit
 fi
-die 1 "neither -s nor -r was specified"
 
 # discard anything before a colon to get the fs
 srcfs="${src#*:}"
