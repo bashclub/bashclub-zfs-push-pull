@@ -148,7 +148,7 @@ if $tossh ; then
 	### get newest snapshot on dest - it must exist on src
 	###
 	#last="$(ZFS "$desthost" list -d 1 -t snapshot -H -S creation -o name $destfs/$srcbase | head -n1 | cut -f2 -d@)"
-	last="$(ssh "$desthost" cat "$destpath/.last")"
+	last="$(ssh "$desthost" zfslast)"
 
 	###
 	### send
@@ -166,14 +166,14 @@ if $tossh ; then
 		if [[ -n $gpgid ]] ; then
 			ZFS "$srchost" send $send_opts -R -I "$last" "$cur" \
 				| gpg --trust-model always --encrypt --recipient "$gpgid" \
-				| ssh "$desthost" "cat > \"$destpath/${tag}_$date.zfssnap.gpg\"" \
+				| ssh "$desthost" zfswrite "${tag}_$date.zfssnap.gpg" \
 				|| die $? "zfs incremental send failed"
-			ssh "$desthost" "echo \"$snap\" > \"$destpath/.last\""
+			ssh "$desthost" zfslast "$snap"
 		else
 			ZFS "$srchost" send $send_opts -R -I "$last" "$cur" \
-				| ssh "$desthost" "cat > \"$destpath/${tag}_$date.zfssnap\"" \
+				| ssh "$desthost" zfswrite "${tag}_$date.zfssnap" \
 				|| die $? "zfs incremental send failed"
-			ssh "$desthost" "echo \"$snap\" > \"$destpath/.last\""
+			ssh "$desthost" zfslast "$snap"
 		fi
 	fi
 
@@ -201,13 +201,13 @@ elif $fromssh ; then
 	###
 	log "receiving incremental snapshot from $src to $dest"
 	#ZFS "$srchost" send $send_opts -R -I "$last" "$cur" | ZFS "$desthost" receive $recv_opts -Fue "$destfs" || die $? "zfs incremental send failed"
-	for file in $(ssh "$srchost" "find \"$srcpath\" -name \"*.zfssnap\" -o -name \"*.zfssnap.gpg\"") ; do
+	for file in $(ssh "$srchost" zfsfind "$srcpath" | sort) ; do
 		if [[ $file =~ \.gpg$ ]] ; then
-			ssh "$srchost" "cat \"$file\"" | gpg | ZFS "$desthost" receive $recv_opts -Fue "$dest" \
-				&& ssh "$srchost" "rm \"$file\""
+			ssh "$srchost" zfsget "$file" | gpg | ZFS "$desthost" receive $recv_opts -Fue "$dest" \
+				&& ssh "$srchost" rm "$file"
 		else
-			ssh "$srchost" "cat \"$file\"" | ZFS "$desthost" receive $recv_opts -Fue "$dest" \
-				&& ssh "$srchost" "rm \"$file\""
+			ssh "$srchost" zfsget "$file" | ZFS "$desthost" receive $recv_opts -Fue "$dest" \
+				&& ssh "$srchost" rm "$file"
 		fi
 	done
 
