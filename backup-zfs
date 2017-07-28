@@ -202,6 +202,7 @@ elif $fromssh ; then
 	log "receiving incremental snapshot from $src to $dest"
 	#ZFS "$srchost" send $send_opts -R -I "$last" "$cur" | ZFS "$desthost" receive $recv_opts -Fue "$destfs" || die $? "zfs incremental send failed"
 	for file in $(ssh "$srchost" zfsfind | sort) ; do
+		log "receiving $file from $host"
 		if [[ $file =~ \.gpg$ ]] ; then
 			ssh "$srchost" zfsget "$file" | gpg | ZFS "$desthost" receive $recv_opts -Fue "$dest" \
 				&& ssh "$srchost" rm "$file"
