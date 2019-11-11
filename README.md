@@ -40,7 +40,7 @@ scripts out there, and was the main reason I wrote this.
       src          the source fs, specified as [host:]pool/path/to/fs
       dest         the destination fs parent, specified as [host:]pool/path/to/fs
                    (the final path component of src will be appended to dest)
-
+      -p           Alternate SSH Port, default 22
       -h           help
       -v           verbose mode
       -q           quiet mode
