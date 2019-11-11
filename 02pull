@@ -1,0 +1,14 @@
+SCRIPTPATH='/mnt/Raid'
+SOURCEHOST='your.dom.tld'
+SOURCEPATH='rpool/vms' # Example showing Proxmox Source
+DESTPATH='Raid/ssd/32'# Example showing FreeNAS Destination (ssh-keygen and ssh-copy-id necessary)
+PORT=10011 # NAT Rule on Source that redirects port 10011 to internal IP 11 on this Port 
+SOURCEALL=$(ssh root@$SOURCEHOST 'for src in $(zfs list -H -o name |grep '"$SOURCEPATH"'/|grep -v alt); do echo ${src##*/}; done') #determines Source Datasets without 'alt' in Name
+echo ''
+echo Repliziere von $SOURCEHOST $SOURCEALL
+echo ''
+for DATA in $SOURCEALL
+do
+$SCRIPTPATH/backup-zfs -p $PORT -k 5 -v $SOURCEHOST:$SOURCEPATH/$DATA $DESTPATH
+done
+###
