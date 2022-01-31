@@ -1,5 +1,5 @@
 #!/bin/bash
-# backup-zfs: use zfs send/recv to push/pull snapshots
+# backup-zfs: use zfs send/recv to push/pull snapshots - New does not run twice
 prog="$(basename "$0")"
 
 usage() {
