@@ -10,7 +10,6 @@ echo Repliziere von $SOURCEHOST $SOURCEALL
 echo ''
 for DATA in $SOURCEALL
 do
-$SCRIPTPATH/backup-zfs -p $PORT -k 5 -v $SOURCEHOST:$SOURCEPATH/$DATA $DESTPATH
+$SCRIPTPATH/bashclub-zfs -p $PORT -k 5 -v $SOURCEHOST:$SOURCEPATH/$DATA $DESTPATH
 done
 ###
-~   
