@@ -2,8 +2,8 @@
 SCRIPTPATH='/root'
 SOURCEHOST='host.dom.tld'
 SOURCEPATH='rpool/data'
-DESTPATH='rpool/data/Replca'
-PORT='10022'
+DESTPATH='rpool/data/Replica'
+PORT='22'
 SOURCEALL=$(ssh -p$PORT root@$SOURCEHOST 'for src in $(zfs list -H -o name |grep '"$SOURCEPATH"'/|grep -v alt); do echo ${src##*/}; done') #determines Source Datasets without 'alt' in Name
 echo ''
 echo Repliziere von $SOURCEHOST $SOURCEALL
