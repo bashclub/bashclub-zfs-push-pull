@@ -4,7 +4,7 @@ SOURCEHOST='host.dom.tld'
 SOURCEPATH='rpool/data'
 DESTPATH='rpool/data/Replica'
 PORT='22'
-SOURCEALL=$(ssh -p$PORT root@$SOURCEHOST 'for src in $(zfs list -H -o name |grep '"$SOURCEPATH"'/|grep -v alt); do echo ${src##*/}; done') #determines Source Datasets without 'alt' in Name
+SOURCEALL=$(ssh -p$PORT root@$SOURCEHOST 'for src in $(zfs list -H -o name |grep '"$SOURCEPATH"'/|grep -v alt|grep -v state|grep -v disk-9); do echo ${src##*/}; done') #determines Source Datasets without 'alt, state and disk-9' in Name - Those are typlically not replicated
 echo ''
 echo Repliziere von $SOURCEHOST $SOURCEALL
 echo ''
