@@ -7,7 +7,7 @@ usage() {
 	usage: $prog [-hvq] [-t tag] [-k keep] [-d dateopts] src dest
 	  use zfs send/recv to push/pull snapshots
 
-	  This Release is default set to send raw. This means you can send encrypted and compressed Datasets 1:1!
+	  !This Release is default set to send raw. This means you can send encrypted and compressed Datasets 1:1!
 
 	  src          the source fs, specified as [host:]pool/path/to/fs
 	  dest         the destination fs parent, specified as [host:]pool/path/to/fs
