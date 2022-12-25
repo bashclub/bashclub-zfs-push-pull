@@ -87,7 +87,7 @@ ZFS() {
             h) usage 0 ;;
             v)
                 verbose=true
-                send_opts="-v"
+                send_opts="-v -w"
                 recv_opts="-v"
                 ;;
             q) quiet=true ;;
