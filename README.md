@@ -37,16 +37,23 @@ scripts out there, and was the main reason I wrote this.
     bashclub-zfs [-hvq] [-t tag] [-k keep] [-d dateopts] src dest
       use zfs send/recv to push/pull snapshots
 
-      src          the source fs, specified as [host:]pool/path/to/fs
-      dest         the destination fs parent, specified as [host:]pool/path/to/fs
-                   (the final path component of src will be appended to dest)
-      -p           Alternate SSH Port, default 22
-      -h           help
-      -v           verbose mode
-      -q           quiet mode
-      -t tag       tag to use for naming snapshots (default: bashclub-zfs)
-      -k keep      number of snapshots to keep on src (default: 5)
-      -d dateopts  options for date(1) - used to name the snapshots (default: +%F_%T)
+	  !This Release is default set to send raw. This means you can send encrypted and compressed Datasets 1:1!
+	  src          the source fs, specified as [host:]pool/path/to/fs
+	  dest         the destination fs parent, specified as [host:]pool/path/to/fs
+	               (the final path component of src will be appended to dest)
+	  -p           ssh port
+	  -h           help
+	  -v           verbose mode
+	  -C           SSH Compression - obsolete if send_opts="-v -w" are set to raw
+	  -R           ZFS Re-Init
+	  -I           Send intermediate Snapshots
+	  -q           quiet mode
+	  -t tag       tag to use for naming snapshots (default: backup-zfs)
+	  -k keep      number of snapshots to keep on src (default: 5)
+	  -d dateopts  options for date(1) - used to name the snapshots (default: +%F_%T)
+	  -s           store mode - output snaps from local fs to ssh server
+	  -r           read mode - read snaps from ssh server to local fs
+	  -g gpg-id    gpg recipient key id (store mode only)
 
     # Local mode: Backup tank/system to backup/tank/system
     bashclub-zfs tank/system backup/tank
