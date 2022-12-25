@@ -18,10 +18,10 @@ scripts out there, and was the main reason I wrote this.
 * SSH connection is made with regular user, and uses sudo for ZFS commands
 * sends incremental snapshots after first run
 
-## Limitations
+## Features and Limitations
 * always uses sudo
-* always creates recursive snapshots (`zfs snapshot -r`)
-* always sends full replication stream (`zfs send -R`)
+* always creates recursive snapshots (`zfs snapshot -r`) -  But better use 02pull to sync single Datasets
+* select to send full replication stream (`zfs send -R`) or Intermediate Snapshots (zfs send -I), default without sending Full and Intermediate!
 * destination should be specified as the *parent* of the desired destination
   (`zfs recv -e`)
 
