@@ -1,8 +1,8 @@
-# backup-zfs
+# bashclub-zfs
 zfs snapshot send/receive supporting pull
 
 ## Basic Usage
-    backup-zfs remote_host:src_pool/fs dest_pool
+    bashclub-zfs remote_host:src_pool/fs dest_pool
 
 This will create a new snapshot on the remote host (via SSH) and "send" it to
 your local host where it will be received into dest_pool/fs.
@@ -34,7 +34,7 @@ scripts out there, and was the main reason I wrote this.
     options, that will need to be done in your ssh_config(5) file
 
 ## Usage/Examples
-    backup-zfs [-hvq] [-t tag] [-k keep] [-d dateopts] src dest
+    bashclub-zfs [-hvq] [-t tag] [-k keep] [-d dateopts] src dest
       use zfs send/recv to push/pull snapshots
 
       src          the source fs, specified as [host:]pool/path/to/fs
@@ -44,21 +44,21 @@ scripts out there, and was the main reason I wrote this.
       -h           help
       -v           verbose mode
       -q           quiet mode
-      -t tag       tag to use for naming snapshots (default: backup-zfs)
+      -t tag       tag to use for naming snapshots (default: bashclub-zfs)
       -k keep      number of snapshots to keep on src (default: 5)
       -d dateopts  options for date(1) - used to name the snapshots (default: +%F_%T)
 
     # Local mode: Backup tank/system to backup/tank/system
-    backup-zfs tank/system backup/tank
+    bashclub-zfs tank/system backup/tank
 
     # Pull mode: Backup tank/system on tankhost to localhost
-    backup-zfs tankhost:tank/system backup/tank
+    bashclub-zfs tankhost:tank/system backup/tank
 
     # Push mode: Backup tank/system on localhost to backuphost
-    backup-zfs tank/system backuphost:backup/tank
+    bashclub-zfs tank/system backuphost:backup/tank
 
     # Double remote mode: Backup tank/system on tankhost to backuphost
-    backup-zfs tankhost:tank/system backuphost:backup/tank
+    bashclub-zfs tankhost:tank/system backuphost:backup/tank
 
     # In this mode, your client will establish two separate SSH sessions,
     # connect them with a pipe, and pull data from one while pushing to the
