@@ -2,6 +2,15 @@
 # backup-zfs: use zfs send/recv to push/pull snapshots - New does not run twice
 prog="$(basename "$0")"
 
+lockfilecheck="${!#}"
+
+# Überprüfen, ob die Variable ".lock" enthält
+if [[ $lockfilecheck = *'.lock' ]]; then
+    custom_lockfile="${lockfilecheck}"
+else
+    custom_lockfile="bashclub-zfs.lock"
+fi
+
 usage() {
 	cat >&2 <<-EOF
 	usage: $prog [-hvq] [-t tag] [-k keep] [-d dateopts] src dest
@@ -281,4 +290,4 @@ ZFS() {
         ZFS "$srchost" destroy -r $srcfs@$snap
     done
     
-) 9>/var/lock/bashclub-zfs.lock
+) 9>/var/lock/$custom_lockfile
