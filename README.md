@@ -1,3 +1,10 @@
+**We discontinue this one.
+Please go ahead with ...
+Much faster and versatile.
+
+**https://github.com/bashclub/zsync**
+**
+
 # bashclub-zfs
 zfs snapshot send/receive supporting pull
 
